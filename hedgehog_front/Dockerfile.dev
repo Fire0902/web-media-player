@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.7
+# Development image for the Vue/Vite frontend — source is bind-mounted
+# from the host and the dev server is reachable on the LAN via --host.
+
+FROM node:24-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 5173
+
+# `--host 0.0.0.0` is mandatory so the dev server is reachable from outside
+# the container (otherwise it only binds to 127.0.0.1 inside the container).
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

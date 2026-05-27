@@ -1,0 +1,15 @@
+node_modules
+build
+tmp/db.sqlite3
+tmp/*.log
+public/thumbnails
+media
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.vscode
+*.log
+coverage
+.DS_Store

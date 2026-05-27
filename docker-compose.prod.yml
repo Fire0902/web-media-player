@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Production stack:
+#   - Backend is built from source, runs the precompiled bundle, and is NOT
+#     published on the host: nginx talks to it through the internal network.
+#   - Frontend is built as a static SPA and served by nginx on port 80.
+#     The SPA bundle is built with VITE_API_BASE_URL=/api, so every API
+#     request is proxied to the backend by nginx (see hedgehog_front/nginx.conf).
+#   - SQLite DB, media files and generated thumbnails live on named volumes
+#     so data survives container rebuilds.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Override sensitive values via a .env file at the project root.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: ./hedgehog_api
+      dockerfile: Dockerfile
+    container_name: hedgehog-api
+    # Run pending migrations before serving. `--force` is required for
+    # production since Adonis otherwise prompts for confirmation.
+    command: sh -c "node ace migration:run --force && node bin/server.js"
+    expose:
+      - "3333"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3333"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TZ: ${TZ:-UTC}
+      APP_KEY: ${APP_KEY:?APP_KEY must be set in the host environment (at least 16 chars)}
+    volumes:
+      - api_db:/app/tmp
+      - api_thumbnails:/app/public/thumbnails
+      # Bind-mount the host's media library read-only into the container
+      - ${MEDIA_DIR:-./hedgehog_api/media}:/app/media:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3333/ >/dev/null 2>&1 || exit 0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  front:
+    build:
+      context: ./hedgehog_front
+      dockerfile: Dockerfile
+      args:
+        # Same-origin path; nginx (below) proxies /api/* to the api service.
+        VITE_API_BASE_URL: /api
+    container_name: hedgehog-front
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api_db:
+  api_thumbnails:

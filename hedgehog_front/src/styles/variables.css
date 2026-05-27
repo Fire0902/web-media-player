@@ -1,0 +1,39 @@
+/*
+ * Design tokens shared by every component.
+ * Values can be overridden per-theme in themes.css using `[data-theme="..."]`.
+ */
+:root {
+  /* surfaces */
+  --c-bg:        #0a0a0c;
+  --c-surface:   #111114;
+  --c-surface-2: #18181d;
+  --c-border:    rgba(255, 255, 255, .07);
+  --c-border-strong: rgba(255, 255, 255, .14);
+
+  /* text */
+  --c-text:      #e8e8ec;
+  --c-text-soft: #b5b5bf;
+  --c-muted:     #6b6b78;
+
+  /* accents */
+  --c-accent:    #e8383a;
+  --c-accent-2:  #f5a623;
+  --c-airing:    #30d158;
+
+  /* legacy bulma-friendly aliases (kept for incremental migration) */
+  --color-background-primary:   var(--c-surface);
+  --color-background-secondary: var(--c-surface-2);
+  --color-background-tertiary:  var(--c-bg);
+  --color-border-tertiary:      var(--c-border);
+  --color-border-secondary:     var(--c-border-strong);
+  --color-text-primary:         var(--c-text);
+  --color-text-secondary:       var(--c-text-soft);
+  --color-text-tertiary:        var(--c-muted);
+
+  /* radii & motion */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --t-fast: .12s;
+  --t-base: .2s;
+}

@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Development stack: source code is bind-mounted from the host, both
+# services run with hot reload, and ports are published directly so the
+# browser at http://localhost:5173 can call http://localhost:3333.
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: ./hedgehog_api
+      dockerfile: Dockerfile.dev
+    container_name: hedgehog-api-dev
+    # Apply any pending migrations before starting the dev server so the
+    # first boot on a fresh SQLite volume doesn't crash on missing tables.
+    command: sh -c "node ace migration:run --force && npm run dev"
+    ports:
+      - "3333:3333"
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: "3333"
+      LOG_LEVEL: info
+      TZ: UTC
+      # APP_KEY must be at least 16 chars — generate a fresh one for your env
+      APP_KEY: ${APP_KEY:-vWAh93dlbbQNwvcfHlKMe-NTJGXH39vW}
+    volumes:
+      # Bind-mount the source so file changes trigger Adonis HMR
+      - ./hedgehog_api:/app
+      # …but keep node_modules inside the container (anonymous volume)
+      # to avoid the host's node_modules shadowing the one installed
+      # at image build time.
+      - api_node_modules:/app/node_modules
+      # SQLite database lives in a named volume to survive restarts
+      - api_db:/app/tmp
+    restart: unless-stopped
+
+  front:
+    build:
+      context: ./hedgehog_front
+      dockerfile: Dockerfile.dev
+    container_name: hedgehog-front-dev
+    ports:
+      - "5173:5173"
+    environment:
+      # Browser-side var; the SPA's bundle is generated on the fly by Vite.
+      VITE_API_BASE_URL: http://localhost:3333
+    volumes:
+      - ./hedgehog_front:/app
+      - front_node_modules:/app/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api_node_modules:
+  api_db:
+  front_node_modules:

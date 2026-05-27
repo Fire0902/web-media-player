@@ -1,3 +1,5 @@
+hedgehog_api/media
+hedgehog_api/public/thumbnails
 # Logs
 logs
 *.log

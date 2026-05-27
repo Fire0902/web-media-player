@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1.7
+# Development image for AdonisJS — source code is bind-mounted from the host
+# and `node ace serve --hmr` provides hot reload.
+
+FROM node:24-alpine
+WORKDIR /app
+
+# Build tools for better-sqlite3 + ffmpeg for the thumbnail service
+RUN apk add --no-cache python3 make g++ ffmpeg
+
+# Install dependencies into the image so node_modules can stay inside the
+# container (named volume) and avoid being shadowed by the host bind mount.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Source files come in through a bind mount at runtime
+EXPOSE 3333
+
+CMD ["npm", "run", "dev"]
