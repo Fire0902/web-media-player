@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Episode, NumberingMode, Season } from '@/types/media'
+import { useProgressStore } from '@/utils/progressStore'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import IconChevron from '@/components/ui/IconChevron.vue'
 import EpisodeRow from './EpisodeRow.vue'
@@ -8,12 +10,25 @@ import EpisodeRow from './EpisodeRow.vue'
  * Collapsible block listing every episode of a single season.
  * Uses the native `<details>` element for built-in accessibility.
  */
-defineProps<{
+const props = defineProps<{
   season: Season
   numberingMode: NumberingMode
 }>()
 
 defineEmits<{ (event: 'play', episode: Episode): void }>()
+
+const progressStore = useProgressStore()
+
+const watchedCount = computed(
+  () => props.season.episodes.filter((episode) => progressStore.isWatched(episode.id)).length,
+)
+const allWatched = computed(
+  () => props.season.episodes.length > 0 && watchedCount.value === props.season.episodes.length,
+)
+
+function toggleSeasonWatched() {
+  progressStore.setSeasonWatched(props.season.id, !allWatched.value)
+}
 </script>
 
 <template>
@@ -27,14 +42,23 @@ defineEmits<{ (event: 'play', episode: Episode): void }>()
 
         <div class="season-meta">
           <StatusPill :status="season.status" size="sm" feminine-ended />
-          <span class="ep-count">{{ season.episodes.length }} ep.</span>
+          <span class="ep-count">
+            {{ watchedCount }}/{{ season.episodes.length }} vu{{ watchedCount > 1 ? 's' : '' }}
+          </span>
+          <button
+            class="season-watched"
+            :class="{ active: allWatched }"
+            @click.prevent.stop="toggleSeasonWatched"
+          >
+            {{ allWatched ? 'Marquer non vue' : 'Marquer vue' }}
+          </button>
         </div>
       </summary>
 
       <div class="episodes-list">
         <EpisodeRow
           v-for="episode in season.episodes"
-          :key="episode.path"
+          :key="episode.id"
           :episode="episode"
           :numbering-mode="numberingMode"
           @play="$emit('play', $event)"
@@ -56,6 +80,7 @@ defineEmits<{ (event: 'play', episode: Episode): void }>()
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px;
   cursor: pointer;
   list-style: none;
@@ -69,6 +94,7 @@ defineEmits<{ (event: 'play', episode: Episode): void }>()
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 .chevron {
   color: var(--c-muted);
@@ -87,12 +113,32 @@ details:not([open]) .chevron { transform: rotate(-90deg); }
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 .ep-count {
   font-size: 12px;
   color: var(--c-muted);
+  white-space: nowrap;
 }
+.season-watched {
+  background: transparent;
+  border: 1px solid var(--c-border-strong);
+  color: var(--c-text-soft);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.season-watched:hover { color: var(--c-text); border-color: var(--c-muted); }
+.season-watched.active { color: var(--c-airing); border-color: var(--c-airing); }
+
 .episodes-list {
   border-top: 1px solid var(--c-border);
+}
+
+@media (max-width: 600px) {
+  .season-header { flex-wrap: wrap; padding: 14px 12px; }
 }
 </style>

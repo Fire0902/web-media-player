@@ -10,6 +10,11 @@ export default defineConfig({
     vue(),
     vueDevTools(),
   ],
+  // JASSUB's worker imports other modules: the default IIFE worker
+  // format can't be code-split, which breaks the production build.
+  worker: {
+    format: 'es',
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

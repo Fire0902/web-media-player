@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/utils/authStore'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
@@ -14,7 +15,9 @@ async function login() {
   if (!email.value || !password.value) return
   await authStore.login(email.value, password.value)
   if (authStore.token) {
-    router.push('/')
+    // Return to the page that bounced the visitor here, if any.
+    const redirect = route.query.redirect
+    router.push(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/')
   }
 }
 </script>
@@ -65,10 +68,9 @@ async function login() {
         </button>
       </form>
 
-      <nav class="auth-links">
-        <a href="#">Mot de passe oublié ?</a>
-        <a href="#">Créer un compte</a>
-      </nav>
+      <p class="auth-hint">
+        Pas de compte ou mot de passe oublié ? Demandez à l'administrateur du serveur.
+      </p>
     </div>
   </section>
 </template>
@@ -183,16 +185,10 @@ async function login() {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.auth-links {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 18px;
+.auth-hint {
+  margin: 18px 0 0;
   font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-muted);
 }
-.auth-links a {
-  color: var(--c-text-soft);
-  text-decoration: none;
-  transition: color var(--t-fast);
-}
-.auth-links a:hover { color: var(--c-text); }
 </style>

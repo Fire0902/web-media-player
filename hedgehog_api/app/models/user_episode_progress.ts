@@ -5,12 +5,12 @@ import Episode from '#models/episode'
 import { DateTime } from 'luxon'
 
 export default class UserEpisodeProgress extends BaseModel {
-  static table = 'user_episode_progress'
+  static table = 'user_episode_progresses'
   @column({ isPrimary: true }) declare id: number
   @column() declare userId: number
   @column() declare episodeId: number
   @column() declare timestamp: number
-  @column() declare viewed: boolean
+  @column({ consume: (v) => Boolean(v) }) declare viewed: boolean
   @column.dateTime({ autoCreate: true }) declare createdAt: DateTime
   @column.dateTime({ autoCreate: true, autoUpdate: true }) declare updatedAt: DateTime
   @belongsTo(() => User) declare user: BelongsTo<typeof User>

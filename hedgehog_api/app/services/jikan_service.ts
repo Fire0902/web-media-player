@@ -35,6 +35,12 @@ export class JikanService {
     return data.data[0]
   }
 
+  /** Fetch a specific entry, used when an admin fixes a wrong match. */
+  async getAnime(malId: number) {
+    const data = await this.get(`/anime/${malId}`)
+    return data?.data ?? null
+  }
+
   async getAnimeCharacters(malId: number) {
     const data = await this.get(`/anime/${malId}/characters`)
     return data?.data ?? []

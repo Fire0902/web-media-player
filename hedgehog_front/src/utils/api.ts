@@ -18,8 +18,19 @@ interface RequestOptions extends RequestInit {
   headers?: HeadersInit
 }
 
+/** Error thrown for non-2xx responses, carrying the HTTP status. */
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 const TOKEN_STORAGE_KEY = 'token'
 let bearerToken: string | null = localStorage.getItem(TOKEN_STORAGE_KEY)
+let unauthorizedHandler: (() => void) | null = null
 
 /** Update the in-memory token and mirror it to localStorage. */
 export function setToken(token: string) {
@@ -32,9 +43,32 @@ export function setToken(token: string) {
 }
 
 /**
- * Low-level request handler. Throws an `Error` whose message is the
- * server-provided body for non-2xx responses, otherwise returns the parsed
- * JSON payload. `204 No Content` is normalised to `null`.
+ * Register what happens when the API rejects our token (expired or
+ * revoked session). The router uses it to send the user to sign-in.
+ */
+export function onUnauthorized(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
+/** Pull a readable message out of an error body (`{ error }`, Adonis `{ errors }`, text). */
+function extractMessage(body: string, status: number): string {
+  try {
+    const parsed = JSON.parse(body)
+    if (typeof parsed?.error === 'string') return parsed.error
+    if (typeof parsed?.message === 'string') return parsed.message
+    if (Array.isArray(parsed?.errors) && parsed.errors[0]?.message) {
+      return String(parsed.errors[0].message)
+    }
+  } catch {
+    /* not JSON */
+  }
+  return body || `HTTP error ${status}`
+}
+
+/**
+ * Low-level request handler. Throws an `ApiError` whose message is the
+ * server-provided reason for non-2xx responses, otherwise returns the
+ * parsed JSON payload. `204 No Content` is normalised to `null`.
  */
 async function request<T>(
   endpoint: string,
@@ -45,6 +79,7 @@ async function request<T>(
     ...(options.headers as Record<string, string> | undefined),
   }
 
+  const hadToken = Boolean(bearerToken)
   if (bearerToken) {
     headers.Authorization = `Bearer ${bearerToken}`
   }
@@ -53,7 +88,9 @@ async function request<T>(
 
   if (!response.ok) {
     const errorBody = await response.text()
-    throw new Error(errorBody || `HTTP error ${response.status}`)
+    // A 401 on the login form is just a wrong password, not a dead session.
+    if (response.status === 401 && hadToken) unauthorizedHandler?.()
+    throw new ApiError(extractMessage(errorBody, response.status), response.status)
   }
 
   if (response.status === 204) return null as T

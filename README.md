@@ -20,8 +20,25 @@ The name comes from the project's two-part layout:
   actors, airing status, filler/recap flags.
 - On-the-fly thumbnail generation through ffmpeg.
 - Built-in HTML5 player with playback speed, double-tap seek hints,
-  fullscreen, next/previous episode navigation and per-season episode
-  numbering.
+  fullscreen, picture-in-picture, keyboard shortcuts, next/previous
+  episode navigation and per-season episode numbering.
+- Smart playback: each file is analysed with ffprobe and delivered the
+  cheapest way the browser can handle — **direct play**, **remux**
+  (video copied, audio/container converted, e.g. MKV) or **transcode**
+  (H.264 at source resolution or downscaled to 1080p/720p/480p/360p).
+  Seeking works in every mode, and the player falls back to a
+  conversion by itself when the browser can't decode a file.
+- Audio track selection and subtitles from sidecar files or embedded in
+  the container (ASS rendered with JASSUB, SRT/VTT natively).
+- Per-user watch state: resume where you left off, watched flags on
+  episodes/seasons/shows, favorites, "Continue watching", "Next up" and
+  "Recently added" shelves, automatic next episode.
+- Library tools: search, genre filter, sorting, automatic clean-up of
+  deleted files, manual rescan and metadata re-identification by
+  MyAnimeList id.
+- Multi-user with roles: first-run setup creates the administrator, who
+  then manages accounts from the admin dashboard (library stats, scan
+  status, active sessions and running conversions).
 - Token-based authentication (AdonisJS Auth + access tokens).
 - Theme switcher (default dark, gruvbox, tokyonight, light) with
   per-user persistence in localStorage.
@@ -32,9 +49,10 @@ The name comes from the project's two-part layout:
 web-media-player/
 ├── hedgehog_api/                AdonisJS 6 backend
 │   ├── app/
-│   │   ├── controllers/         HTTP entry points (files, session, users)
+│   │   ├── controllers/         HTTP entry points (files, session, progress, admin, …)
 │   │   ├── models/              Lucid models (Anime, Season, Episode, …)
-│   │   └── services/            FileService, JikanService, ThumbnailService
+│   │   └── services/            FileService, MediaInfoService, TranscodeService,
+│   │                            SubtitleService, JikanService, ThumbnailService
 │   ├── config/                  Adonis configuration
 │   ├── database/migrations/     SQLite schema
 │   ├── media/                   User-provided video library (gitignored)
@@ -49,11 +67,11 @@ web-media-player/
 │       │   ├── player/          VideoPlayer, PlayerControls, ProgressBar, …
 │       │   ├── layout/          NavBar
 │       │   └── ui/              StatusPill, MetaChip, icons
-│       ├── composables/         useVideoPlayer
+│       ├── composables/         useVideoPlayer, useSubtitles
 │       ├── styles/              variables.css, themes.css, base.css
 │       ├── types/               Domain types shared across the app
-│       ├── utils/               api, fileStore, authStore, format helpers
-│       └── views/               Home, AnimeView, PlayerView, SignIn, SignUp
+│       ├── utils/               api, fileStore, authStore, progressStore, settingsStore, format helpers
+│       └── views/               Home, AnimeView, PlayerView, Settings, Admin, Setup, SignIn
 │
 ├── docker-compose.dev.yml       Dev stack with hot reload
 ├── docker-compose.prod.yml      Production stack behind nginx
@@ -63,7 +81,8 @@ web-media-player/
 ## Requirements
 
 - Node.js 22+ (24 is what the project's tsconfig targets).
-- ffmpeg available on `PATH` (only needed when running outside Docker).
+- ffmpeg and ffprobe available on `PATH` (only needed when running
+  outside Docker).
 - A directory of video files following the convention
   `media/<anime>/<season>/<episode.ext>`.
 
@@ -184,7 +203,9 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and sign in with a user from your database.
+Open http://localhost:5173. On a fresh instance the setup screen asks you
+to create the administrator account; other accounts are then created
+from **Administration → Utilisateurs** (there is no public sign-up).
 
 To point the SPA at a different API host, set `VITE_API_BASE_URL` before
 starting Vite:

@@ -5,7 +5,8 @@ import MetaChip from '@/components/ui/MetaChip.vue'
 
 /**
  * Header block of the anime detail page: poster, title, tags and synopsis.
- * Purely presentational — receives an `Anime` and emits no events.
+ * Purely presentational; action buttons (play, favorite…) are injected
+ * by the parent through the `actions` slot.
  */
 defineProps<{ anime: Anime }>()
 </script>
@@ -33,6 +34,10 @@ defineProps<{ anime: Anime }>()
       <div v-if="anime.studios?.length" class="studios">
         <span class="label-sm">Studio</span>
         {{ anime.studios.join(' · ') }}
+      </div>
+
+      <div class="hero-actions">
+        <slot name="actions" />
       </div>
 
       <p v-if="anime.synopsis" class="synopsis">{{ anime.synopsis }}</p>
@@ -72,6 +77,7 @@ defineProps<{ anime: Anime }>()
   font-size: 64px;
   color: var(--c-muted);
 }
+.hero-info { min-width: 0; }
 .hero-tags {
   display: flex;
   flex-wrap: wrap;
@@ -83,7 +89,8 @@ defineProps<{ anime: Anime }>()
   font-size: clamp(36px, 5vw, 60px);
   line-height: 1;
   margin: 0 0 18px;
-  color: #fff;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
 }
 .genres {
   display: flex;
@@ -117,6 +124,14 @@ defineProps<{ anime: Anime }>()
   color: var(--c-muted);
   opacity: .6;
 }
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.hero-actions:empty { display: none; }
 .synopsis {
   font-size: 14px;
   line-height: 1.75;

@@ -15,9 +15,15 @@ export default class Episode extends BaseModel {
   @column() declare title: string | null
   @column() declare titleJapanese: string | null
   @column() declare airedAt: string | null
-  @column() declare filler: boolean
-  @column() declare recap: boolean
+  @column({ consume: (v) => Boolean(v) }) declare filler: boolean
+  @column({ consume: (v) => Boolean(v) }) declare recap: boolean
   @column() declare thumbnailPath: string | null
+  @column() declare duration: number | null
+  @column() declare container: string | null
+  @column() declare videoCodec: string | null
+  @column() declare audioCodec: string | null
+  @column() declare width: number | null
+  @column() declare height: number | null
   @column({
     prepare: (v) => JSON.stringify(v),
     consume: (v) => typeof v === 'string' ? JSON.parse(v) : v,

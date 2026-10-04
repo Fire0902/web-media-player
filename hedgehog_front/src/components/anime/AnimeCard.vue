@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Anime } from '@/types/media'
+import { useProgressStore } from '@/utils/progressStore'
 import StatusPill from '@/components/ui/StatusPill.vue'
 
 /**
@@ -10,13 +11,19 @@ import StatusPill from '@/components/ui/StatusPill.vue'
  */
 const props = defineProps<{ anime: Anime }>()
 const router = useRouter()
+const progressStore = useProgressStore()
+
+const episodes = computed(() => props.anime.seasons.flatMap((season) => season.episodes))
 
 /** Sum of every episode across every season. */
-const totalEpisodes = computed(() =>
-  props.anime.seasons.reduce((sum, season) => sum + season.episodes.length, 0),
-)
+const totalEpisodes = computed(() => episodes.value.length)
 
 const seasonCount = computed(() => props.anime.seasons.length)
+
+/** Episodes left to watch, shown as a badge like on any media server. */
+const unwatchedCount = computed(
+  () => episodes.value.filter((episode) => !progressStore.isWatched(episode.id)).length,
+)
 
 function openDetail() {
   router.push({ name: 'anime', params: { id: props.anime.id } })
@@ -26,12 +33,23 @@ function openDetail() {
 <template>
   <div class="anime-card" @click="openDetail">
     <div class="anime-cover">
-      <img v-if="anime.coverUrl" :src="anime.coverUrl" :alt="anime.name" />
+      <img v-if="anime.coverUrl" :src="anime.coverUrl" :alt="anime.name" loading="lazy" />
       <div v-else class="anime-cover-placeholder">
         <span>{{ anime.name[0] }}</span>
       </div>
       <div class="cover-gradient" />
       <StatusPill v-if="anime.status" :status="anime.status" size="sm" class="status-floating" />
+      <span
+        v-if="totalEpisodes > 0 && unwatchedCount === 0"
+        class="watch-badge done"
+        title="Tout vu"
+      >✓</span>
+      <span
+        v-else-if="unwatchedCount < totalEpisodes"
+        class="watch-badge"
+        :title="`${unwatchedCount} épisode(s) non vu(s)`"
+      >{{ unwatchedCount }}</span>
+      <span v-if="progressStore.isFavorite(anime.id)" class="fav-badge" title="Favori">♥</span>
     </div>
 
     <div class="anime-info">
@@ -104,6 +122,34 @@ function openDetail() {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+.watch-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 100px;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+}
+.watch-badge.done { background: var(--c-airing); color: #06260f; }
+
+.fav-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  color: var(--c-accent);
+  font-size: 16px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .8);
 }
 
 .anime-info {

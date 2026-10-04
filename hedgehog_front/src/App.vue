@@ -12,7 +12,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <NavBar v-if="route.name !== 'sign-in' && route.name !== 'sign-up'" />
+  <NavBar v-if="route.name && route.name !== 'sign-in' && route.name !== 'setup'" />
   <main class="app-main">
     <router-view />
   </main>

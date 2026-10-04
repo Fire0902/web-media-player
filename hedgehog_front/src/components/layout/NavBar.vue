@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/utils/authStore'
+import { useProgressStore } from '@/utils/progressStore'
 
 const THEMES = ['default', 'gruvbox', 'tokyonight', 'light'] as const
 type Theme = typeof THEMES[number]
 const STORAGE_KEY = 'theme'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const progressStore = useProgressStore()
 
 const currentTheme = ref<Theme>(
   (localStorage.getItem(STORAGE_KEY) as Theme) || 'default',
 )
 const isMenuOpen = ref(false)
 const isThemeMenuOpen = ref(false)
+const isUserMenuOpen = ref(false)
 
 /** Apply a theme to the document root and persist the choice. */
 function setTheme(theme: Theme) {
@@ -19,8 +27,26 @@ function setTheme(theme: Theme) {
   isThemeMenuOpen.value = false
 }
 
+/** Revoke the session and return to the sign-in screen. */
+async function logout() {
+  isUserMenuOpen.value = false
+  await authStore.logout()
+  progressStore.reset()
+  router.push({ name: 'sign-in' })
+}
+
+function closeMenus() {
+  isThemeMenuOpen.value = false
+  isUserMenuOpen.value = false
+}
+
 onMounted(() => {
   document.documentElement.setAttribute('data-theme', currentTheme.value)
+  document.addEventListener('click', closeMenus)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenus)
 })
 </script>
 
@@ -41,9 +67,23 @@ onMounted(() => {
       <span /><span /><span />
     </button>
 
-    <div class="nav-end" :class="{ 'is-open': isMenuOpen }">
+    <div class="nav-end" :class="{ 'is-open': isMenuOpen }" @click="isMenuOpen = false">
+      <router-link to="/" class="nav-link" exact-active-class="active">
+        Accueil
+      </router-link>
+      <router-link v-if="authStore.isAdmin" to="/admin" class="nav-link" active-class="active">
+        Administration
+      </router-link>
+      <router-link to="/settings" class="nav-link" active-class="active">
+        Paramètres
+      </router-link>
+
       <div class="theme-switch" @click.stop>
-        <button class="theme-trigger" @click="isThemeMenuOpen = !isThemeMenuOpen">
+        <button
+          class="theme-trigger"
+          :aria-expanded="isThemeMenuOpen"
+          @click="isThemeMenuOpen = !isThemeMenuOpen; isUserMenuOpen = false"
+        >
           <span class="theme-dot" :data-theme="currentTheme" />
           <span class="theme-label">{{ currentTheme }}</span>
         </button>
@@ -63,6 +103,28 @@ onMounted(() => {
           </ul>
         </transition>
       </div>
+
+      <div v-if="authStore.user" class="theme-switch" @click.stop>
+        <button
+          class="theme-trigger user-trigger"
+          :aria-expanded="isUserMenuOpen"
+          @click="isUserMenuOpen = !isUserMenuOpen; isThemeMenuOpen = false"
+        >
+          <span class="user-avatar">{{ authStore.displayName.charAt(0).toUpperCase() }}</span>
+          <span class="user-name">{{ authStore.displayName }}</span>
+        </button>
+
+        <transition name="fade">
+          <ul v-if="isUserMenuOpen" class="theme-menu">
+            <li class="user-role">
+              {{ authStore.isAdmin ? 'Administrateur' : 'Utilisateur' }}
+            </li>
+            <li>
+              <button class="theme-item" @click="logout">Se déconnecter</button>
+            </li>
+          </ul>
+        </transition>
+      </div>
     </div>
   </nav>
 </template>
@@ -73,7 +135,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 28px;
-  background: rgba(10, 10, 12, .8);
+  background: color-mix(in srgb, var(--c-bg) 82%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--c-border);
@@ -117,6 +179,18 @@ onMounted(() => {
 
 .nav-end { display: flex; align-items: center; gap: 12px; }
 
+.nav-link {
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--c-text-soft);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.nav-link:hover { color: var(--c-text); background: var(--c-surface-2); }
+.nav-link.active { color: var(--c-text); background: var(--c-surface-2); }
+
 .theme-switch { position: relative; }
 .theme-trigger {
   display: inline-flex;
@@ -136,6 +210,36 @@ onMounted(() => {
 .theme-trigger:hover {
   border-color: var(--c-border-strong);
   color: var(--c-text);
+}
+
+.user-trigger {
+  text-transform: none;
+  padding: 4px 12px 4px 4px;
+}
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-role {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
 }
 
 .theme-dot {
@@ -185,6 +289,7 @@ onMounted(() => {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (max-width: 700px) {
+  .nav { padding: 12px 14px; }
   .nav-burger { display: inline-flex; }
   .nav-end {
     position: absolute;
@@ -193,11 +298,12 @@ onMounted(() => {
     right: 0;
     flex-direction: column;
     align-items: stretch;
-    padding: 12px 28px;
+    padding: 12px 14px;
     background: var(--c-surface);
     border-bottom: 1px solid var(--c-border);
     display: none;
   }
   .nav-end.is-open { display: flex; }
+  .theme-menu { position: static; box-shadow: none; margin-top: 6px; }
 }
 </style>

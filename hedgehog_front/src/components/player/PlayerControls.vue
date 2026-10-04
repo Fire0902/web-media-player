@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Episode } from '@/types/media'
+import type { Chapter, Episode } from '@/types/media'
 import ProgressBar from './ProgressBar.vue'
 import VolumeControl from './VolumeControl.vue'
 import SpeedMenu from './SpeedMenu.vue'
@@ -8,6 +8,7 @@ import {
   FULLSCREEN_EXIT_PATH,
   NEXT_PATH,
   PAUSE_PATH,
+  PIP_PATH,
   PLAY_PATH,
   PREV_PATH,
 } from './icons'
@@ -20,11 +21,13 @@ defineProps<{
   isPlaying: boolean
   currentTime: number
   duration: number
+  chapters: Chapter[]
   volume: number
   speed: number
   speeds: number[]
   speedMenuOpen: boolean
   isFullscreen: boolean
+  pipSupported: boolean
   prevEpisode: Episode | null
   nextEpisode: Episode | null
 }>()
@@ -33,9 +36,11 @@ const emit = defineEmits<{
   (event: 'toggle-play'): void
   (event: 'seek', payload: Event): void
   (event: 'set-volume', value: number): void
+  (event: 'toggle-mute'): void
   (event: 'select-speed', value: number): void
   (event: 'update:speed-menu-open', open: boolean): void
   (event: 'toggle-fullscreen'): void
+  (event: 'toggle-pip'): void
   (event: 'play-episode', episode: Episode): void
 }>()
 
@@ -53,15 +58,25 @@ function playNext(next: Episode | null) {
     <ProgressBar
       :current-time="currentTime"
       :duration="duration"
+      :chapters="chapters"
       @seek="$emit('seek', $event)"
     />
 
     <div class="controls">
       <div class="controls-left">
-        <button class="btn" :disabled="!prevEpisode" @click.stop="playPrev(prevEpisode)">
+        <button
+          class="btn"
+          aria-label="Épisode précédent"
+          :disabled="!prevEpisode"
+          @click.stop="playPrev(prevEpisode)"
+        >
           <svg viewBox="0 0 24 24" width="22" height="22"><path :d="PREV_PATH" fill="white" /></svg>
         </button>
-        <button class="btn btn-main" @click.stop="$emit('toggle-play')">
+        <button
+          class="btn btn-main"
+          :aria-label="isPlaying ? 'Pause' : 'Lecture'"
+          @click.stop="$emit('toggle-play')"
+        >
           <svg v-if="!isPlaying" viewBox="0 0 24 24" width="26" height="26">
             <path :d="PLAY_PATH" fill="white" />
           </svg>
@@ -69,13 +84,25 @@ function playNext(next: Episode | null) {
             <path :d="PAUSE_PATH" fill="white" />
           </svg>
         </button>
-        <button class="btn" :disabled="!nextEpisode" @click.stop="playNext(nextEpisode)">
+        <button
+          class="btn"
+          aria-label="Épisode suivant"
+          :disabled="!nextEpisode"
+          @click.stop="playNext(nextEpisode)"
+        >
           <svg viewBox="0 0 24 24" width="22" height="22"><path :d="NEXT_PATH" fill="white" /></svg>
         </button>
       </div>
 
       <div class="controls-right">
-        <VolumeControl :volume="volume" @update:volume="$emit('set-volume', $event)" />
+        <VolumeControl
+          :volume="volume"
+          @update:volume="$emit('set-volume', $event)"
+          @toggle-mute="$emit('toggle-mute')"
+        />
+
+        <!-- Slot for extra buttons (subtitle, audio, quality pickers) injected by the parent. -->
+        <slot name="extras" />
 
         <SpeedMenu
           :open="speedMenuOpen"
@@ -85,7 +112,21 @@ function playNext(next: Episode | null) {
           @select="$emit('select-speed', $event)"
         />
 
-        <button class="btn" @click.stop="$emit('toggle-fullscreen')">
+        <button
+          v-if="pipSupported"
+          class="btn"
+          aria-label="Image dans l'image"
+          title="Image dans l'image"
+          @click.stop="$emit('toggle-pip')"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20"><path :d="PIP_PATH" fill="white" /></svg>
+        </button>
+
+        <button
+          class="btn"
+          :aria-label="isFullscreen ? 'Quitter le plein écran' : 'Plein écran'"
+          @click.stop="$emit('toggle-fullscreen')"
+        >
           <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="20" height="20">
             <path :d="FULLSCREEN_ENTER_PATH" fill="white" />
           </svg>
@@ -104,8 +145,8 @@ function playNext(next: Episode | null) {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .65));
-  padding: 0 .75rem .6rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .75));
+  padding: 24px .75rem .6rem;
 }
 .controls {
   display: flex;
@@ -115,7 +156,7 @@ function playNext(next: Episode | null) {
 .controls-left, .controls-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .btn {
   background: none;
